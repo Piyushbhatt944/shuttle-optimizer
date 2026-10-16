@@ -39,12 +39,12 @@ CSV Input → Haversine Matrix → Floyd-Warshall → Greedy Schedule → Local 
 ### Slide 5 — Implementation
 **4 OOP classes:**
 
-| Class | File | Responsibility |
+| Class | Defined in | Responsibility |
 |---|---|---|
-| `Stop` | `data.h/cpp` | Stores stop data; `operator<` sorts by deadline |
-| `Shuttle` | `scheduler.h/cpp` | Holds assigned stops and current time |
-| `Schedule` | `scheduler.h/cpp` | Wraps the full list of shuttle routes |
-| `Evaluator` | `evaluator.h/cpp` | Computes metrics and exports CSV |
+| `Config` | `include/shuttle.h` | Stores compile-time constants: `START_TIME`, `DWELL_TIME`, `MAX_ITERATIONS`, speed |
+| `Stop` | `include/shuttle.h` | Stop data (id, name, lat, lon, deadline); `operator<` enables deadline-based sort |
+| `ScheduleEntry` | `include/shuttle.h` | One stop visit: `stopId`, `arrivalTime`, `departureTime` |
+| `ShuttleSchedule` | `include/shuttle.h` | One shuttle's full route: `shuttleId` + `vector<ScheduleEntry>` |
 
 **5 source modules:** `main.cpp`, `data.cpp`, `scheduler.cpp`, `optimizer.cpp`, `evaluator.cpp`.
 
