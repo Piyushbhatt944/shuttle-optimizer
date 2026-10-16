@@ -3,9 +3,12 @@
 #include <iomanip>
 #include <fstream>
 #include <cstdio>
+
 using namespace std;
 
-extern vector<Stop> g_allStops;
+// ──────────────────────────────────────────────
+// Internal helpers
+// ──────────────────────────────────────────────
 
 static string minutesToHHMM(int minutes) {
     int h = minutes / 60;
@@ -29,16 +32,19 @@ static int getRequiredByTime(int stopId) {
     return 0;
 }
 
+// ──────────────────────────────────────────────
+// Print schedule to stdout with metrics
+// ──────────────────────────────────────────────
 void evaluateSchedule(const vector<ShuttleSchedule>& schedule,
                       const string& label) {
     cout << "\n" << string(60, '=') << "\n";
     cout << "  Schedule: " << label << "\n";
     cout << string(60, '=') << "\n";
 
-    int totalTravel  = 0;
-    int totalWait    = 0;
-    int totalStops   = 0;
-    int onTimeStops  = 0;
+    int totalTravel = 0;
+    int totalWait   = 0;
+    int totalStops  = 0;
+    int onTimeStops = 0;
 
     for (const auto& shuttle : schedule) {
         cout << "\n--- Shuttle " << shuttle.shuttleId
@@ -52,9 +58,9 @@ void evaluateSchedule(const vector<ShuttleSchedule>& schedule,
         cout << string(68, '-') << "\n";
 
         for (size_t i = 0; i < shuttle.stops.size(); i++) {
-            const auto& entry = shuttle.stops[i];
-            int requiredBy = getRequiredByTime(entry.stopId);
-            bool onTime = (entry.arrivalTime <= requiredBy);
+            const auto& entry     = shuttle.stops[i];
+            int         requiredBy = getRequiredByTime(entry.stopId);
+            bool        onTime     = (entry.arrivalTime <= requiredBy);
 
             cout << left
                  << setw(28) << getStopName(entry.stopId)
@@ -78,14 +84,17 @@ void evaluateSchedule(const vector<ShuttleSchedule>& schedule,
 
     cout << "\n--- Metrics ---\n";
     cout << "Total travel time:     " << totalTravel << " minutes\n";
-    cout << "Total wait/slack time: " << totalWait << " minutes\n";
+    cout << "Total wait/slack time: " << totalWait   << " minutes\n";
     cout << "Total combined cost:   " << (totalTravel + totalWait) << " minutes\n";
     cout << "On-time performance:   " << onTimeStops << "/" << totalStops
-         << " (" << fixed << setprecision(1)
+         << " ("  << fixed << setprecision(1)
          << (totalStops > 0 ? (100.0 * onTimeStops / totalStops) : 0.0)
          << "%)\n";
 }
 
+// ──────────────────────────────────────────────
+// Export schedule to CSV
+// ──────────────────────────────────────────────
 void exportScheduleToCSV(const vector<ShuttleSchedule>& schedule,
                          const string& filename) {
     ofstream file(filename);
@@ -99,9 +108,9 @@ void exportScheduleToCSV(const vector<ShuttleSchedule>& schedule,
     for (const auto& shuttle : schedule) {
         for (const auto& entry : shuttle.stops) {
             file << shuttle.shuttleId << ","
-                 << entry.stopId << ","
+                 << entry.stopId      << ","
                  << getStopName(entry.stopId) << ","
-                 << minutesToHHMM(entry.arrivalTime) << ","
+                 << minutesToHHMM(entry.arrivalTime)   << ","
                  << minutesToHHMM(entry.departureTime) << "\n";
         }
     }

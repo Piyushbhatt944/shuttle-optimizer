@@ -1,49 +1,93 @@
-ShuttleOpt - Static Shuttle Schedule Optimizer for Urban Transit
+# ShuttleOpt — Static Shuttle Schedule Optimizer for Urban Transit
 
-We have 4 stops in Dehradun (Clock Tower, ISBT, Railway Station, Rajpur Road) and 2 shuttles. The program reads the stop data from a csv file, calculates how long it takes to travel between each pair of stops using the Haversine formula, and then builds a schedule using a greedy algorithm.
+ShuttleOpt reads GPS stop coordinates and arrival deadlines from a CSV file, calculates inter-stop travel times using the **Haversine formula** and **Floyd-Warshall** all-pairs shortest paths, then builds a shuttle schedule in two stages:
 
-At the end it prints the schedule to the terminal and saves it as a csv file in the output folder.
+1. **Greedy baseline** — assigns stops to the shuttle that can arrive earliest, sorted by deadline.
+2. **Local-search optimizer** — improves the schedule using 2-opt (route reversal) and inter-shuttle stop relocation.
 
-How to compile (type this in the VS Code terminal):
+Final results are printed to the terminal and saved to `output/final_schedule.csv`.
 
-    g++ -Iinclude -Wall -std=c++14 src/main.cpp src/data.cpp src/scheduler.cpp src/optimizer.cpp src/evaluator.cpp -o shuttle_optimizer
+---
 
-How to run (type this after compiling):
+## How to Compile
 
-    
+```bash
+# Using Makefile (recommended)
+make
 
-You can also pass arguments like this:
+# Or manually
+g++ -Iinclude -Wall -std=c++14 src/main.cpp src/data.cpp src/scheduler.cpp src/optimizer.cpp src/evaluator.cpp -o shuttle_optimizer
+```
 
-    .\shuttle_optimizer.exe data\stops.csv 2
+## How to Run
 
-DSA AND OOP CONCEPTS
-
-DSA concepts used:
-
-    - Graph representation using adjacency matrix (the travel time matrix)
-    - Floyd-Warshall algorithm for all-pairs shortest path (data.cpp)
-    - Greedy algorithm for schedule generation (scheduler.cpp)
-    - Sorting using STL sort with operator overloading (scheduler.cpp)
-    - 2D vectors as matrix data structure (data.cpp)
-    - Linear search for stop lookup (evaluator.cpp, optimizer.cpp)
-
-OOP concepts used:
-
-    - Classes with public members (Stop, ScheduleEntry, ShuttleSchedule, Config)
-    - Default constructors (Stop(), ScheduleEntry(), ShuttleSchedule())
-    - Parameterized constructors (Stop(id, name, ...), ScheduleEntry(id, arr, dep))
-    - Destructor (~ShuttleSchedule clears the stops vector)
-    - Operator overloading (< for Stop comparison, << for printing)
-    - Friend functions (operator<< declared as friend in each class)
-    - Static class members (Config class with enum constants and static method)
-    - Encapsulation (static helper functions visible only within their own file)
-    - Modular design (4 separate modules with one shared header contract)
-
-Some assumptions we made:
-
-    - shuttle speed is 25 km/h which is reasonable for dehradun city traffic
-    - each shuttle spends 2 minutes at every stop for boarding
-    - all shuttles start at 7:00 AM
-    - the coordinates are approximate real locations in dehradun
-
+```bash
+# Default (Dehradun 4-stop dataset, 2 shuttles)
 .\shuttle_optimizer.exe
+
+# Custom file and shuttle count
+.\shuttle_optimizer.exe data\stops.csv 2
+
+# Edge-case test (non-contiguous stop IDs)
+.\shuttle_optimizer.exe data\stops_edge.csv 2
+```
+
+---
+
+## Project Structure
+
+```
+shuttle-optimizer/
+├── include/shuttle.h       # Domain models + function declarations
+├── src/
+│   ├── main.cpp            # CLI entry point, pipeline orchestration
+│   ├── data.cpp            # CSV loader, Haversine + Floyd-Warshall matrix
+│   ├── scheduler.cpp       # Greedy baseline scheduler
+│   ├── optimizer.cpp       # Local-search optimiser (2-opt + relocate)
+│   └── evaluator.cpp       # Schedule printer and CSV exporter
+├── data/
+│   ├── stops.csv           # 4 Dehradun stops (IDs 0-3)
+│   └── stops_edge.csv      # Edge-case: non-contiguous stop IDs
+├── output/                 # Generated schedule CSV (auto-created)
+├── docs/                   # Detailed documentation
+├── Makefile
+└── PROJECT_CONTEXT.md      # Quick reference for this codebase
+```
+
+---
+
+## DSA Concepts Used
+
+- **Adjacency matrix** — `N×N vector<vector<int>>` for travel times
+- **Floyd-Warshall** — all-pairs shortest path in O(n³)
+- **Greedy algorithm** — earliest-deadline-first stop assignment
+- **2-opt local search** — intra-route sub-sequence reversal
+- **Relocation** — inter-shuttle stop migration
+- **STL sort** with `operator<` overloading
+
+## OOP Concepts Used
+
+- 4 classes: `Config`, `Stop`, `ScheduleEntry`, `ShuttleSchedule`
+- Constructors (default + parameterized), destructor
+- `operator<` and `operator<<` overloading
+- `friend` functions, `static` members
+- Modular design with shared header contract
+
+---
+
+## Assumptions
+
+- Shuttle speed: 25 km/h (reasonable for Dehradun city traffic)
+- Dwell time per stop: 2 minutes
+- All shuttles start at 07:00 AM
+- Coordinates are approximate real Dehradun locations
+
+---
+
+## Documentation
+
+See `docs/` folder:
+- `PROJECT_WALKTHROUGH.md` — how the code works, explained for beginners
+- `BUILD_FROM_SCRATCH.md` — how to recreate this project from an empty folder
+- `PBL_PRESENTATION_GUIDE.md` — presentation script, demo steps, 20 viva Q&A
+- `FUTURE_SCOPE.md` — roadmap for future improvements
