@@ -6,10 +6,6 @@
 
 using namespace std;
 
-// ──────────────────────────────────────────────
-// Internal helpers
-// ──────────────────────────────────────────────
-
 static string minutesToHHMM(int minutes) {
     int h = minutes / 60;
     int m = minutes % 60;
@@ -32,9 +28,6 @@ static int getRequiredByTime(int stopId) {
     return 0;
 }
 
-// ──────────────────────────────────────────────
-// Print schedule to stdout with metrics
-// ──────────────────────────────────────────────
 void evaluateSchedule(const vector<ShuttleSchedule>& schedule,
                       const string& label) {
     cout << "\n" << string(60, '=') << "\n";
@@ -92,9 +85,6 @@ void evaluateSchedule(const vector<ShuttleSchedule>& schedule,
          << "%)\n";
 }
 
-// ──────────────────────────────────────────────
-// Export schedule to CSV
-// ──────────────────────────────────────────────
 void exportScheduleToCSV(const vector<ShuttleSchedule>& schedule,
                          const string& filename) {
     ofstream file(filename);

@@ -8,15 +8,9 @@
 
 using namespace std;
 
-// ──────────────────────────────────────────────
-// Global definitions
-// ──────────────────────────────────────────────
 vector<Stop>  g_allStops;
-map<int, int> g_stopIdxMap; // stop ID -> matrix row/col index
+map<int, int> g_stopIdxMap;
 
-// ──────────────────────────────────────────────
-// Math helpers
-// ──────────────────────────────────────────────
 static const double EARTH_RADIUS_KM = 6371.0;
 static const double PI = 3.14159265358979323846;
 
@@ -41,9 +35,6 @@ static void trimRight(string& s) {
     }
 }
 
-// ──────────────────────────────────────────────
-// Load stops from CSV and populate global maps
-// ──────────────────────────────────────────────
 vector<Stop> loadStops(const string& filename) {
     vector<Stop> stops;
     ifstream file(filename);
@@ -52,7 +43,6 @@ vector<Stop> loadStops(const string& filename) {
     }
 
     string line;
-    // Skip header line
     if (!getline(file, line)) {
         throw runtime_error("Stops file is empty: " + filename);
     }
@@ -73,7 +63,6 @@ vector<Stop> loadStops(const string& filename) {
         stops.push_back(Stop(id, stopName, lat, lon, req));
     }
 
-    // Build global state used by all modules
     g_allStops = stops;
     g_stopIdxMap.clear();
     for (int i = 0; i < static_cast<int>(stops.size()); i++) {
@@ -83,16 +72,10 @@ vector<Stop> loadStops(const string& filename) {
     return stops;
 }
 
-// ──────────────────────────────────────────────
-// Build N×N travel-time matrix (minutes).
-// Row/col i corresponds to stops[i], accessed via g_stopIdxMap[stopId].
-// Applies Floyd-Warshall for all-pairs shortest travel times.
-// ──────────────────────────────────────────────
 vector<vector<int>> buildTravelTimeMatrix(const vector<Stop>& stops) {
     int n = static_cast<int>(stops.size());
     vector<vector<int>> matrix(n, vector<int>(n, 0));
 
-    // Direct travel times via Haversine
     for (int i = 0; i < n; i++) {
         for (int j = 0; j < n; j++) {
             if (i == j) {
@@ -107,7 +90,6 @@ vector<vector<int>> buildTravelTimeMatrix(const vector<Stop>& stops) {
         }
     }
 
-    // Floyd-Warshall: find shortest path between every pair via intermediate stops
     for (int k = 0; k < n; k++) {
         for (int i = 0; i < n; i++) {
             for (int j = 0; j < n; j++) {

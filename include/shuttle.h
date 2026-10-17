@@ -8,24 +8,18 @@
 
 using namespace std;
 
-// ──────────────────────────────────────────────
-// Configuration constants
-// ──────────────────────────────────────────────
 class Config {
 public:
     enum { START_TIME = 420, DWELL_TIME = 2, MAX_ITERATIONS = 500 };
-    static double shuttleSpeed() { return 25.0; } // km/h
+    static double shuttleSpeed() { return 25.0; }
 };
 
-// ──────────────────────────────────────────────
-// Domain models
-// ──────────────────────────────────────────────
 class Stop {
 public:
     int id;
     string name;
     double lat, lon;
-    int requiredByTime; // minutes since midnight
+    int requiredByTime;
 
     Stop() : id(0), name(""), lat(0), lon(0), requiredByTime(0) {}
 
@@ -80,17 +74,9 @@ public:
     }
 };
 
-// ──────────────────────────────────────────────
-// Global shared state (populated by loadStops)
-// ──────────────────────────────────────────────
 extern vector<Stop>  g_allStops;
-// Maps stop ID -> row/col index in the travel-time matrix.
-// Allows non-contiguous or non-zero-based stop IDs to work safely.
 extern map<int, int> g_stopIdxMap;
 
-// ──────────────────────────────────────────────
-// Function declarations
-// ──────────────────────────────────────────────
 vector<Stop>           loadStops(const string& filename);
 vector<vector<int>>    buildTravelTimeMatrix(const vector<Stop>& stops);
 
@@ -106,4 +92,4 @@ vector<ShuttleSchedule> optimizeSchedule(
 void evaluateSchedule(const vector<ShuttleSchedule>& schedule, const string& label);
 void exportScheduleToCSV(const vector<ShuttleSchedule>& schedule, const string& filename);
 
-#endif // SHUTTLE_H
+#endif

@@ -4,10 +4,6 @@
 
 using namespace std;
 
-// ──────────────────────────────────────────────
-// Internal helpers
-// ──────────────────────────────────────────────
-
 static int getRequiredByTime(int stopId) {
     for (const auto& s : g_allStops) {
         if (s.id == stopId) return s.requiredByTime;
@@ -15,8 +11,6 @@ static int getRequiredByTime(int stopId) {
     return 0;
 }
 
-// Recompute arrival/departure for every entry in a shuttle's route.
-// Returns false if any stop is reached after its deadline (infeasible).
 static bool recomputeTimes(ShuttleSchedule&           schedule,
                            const vector<vector<int>>& travelTimes) {
     for (size_t i = 0; i < schedule.stops.size(); i++) {
@@ -33,14 +27,12 @@ static bool recomputeTimes(ShuttleSchedule&           schedule,
         schedule.stops[i].departureTime = arrival + Config::DWELL_TIME;
 
         if (arrival > getRequiredByTime(schedule.stops[i].stopId)) {
-            return false; // deadline missed — candidate is infeasible
+            return false;
         }
     }
     return true;
 }
 
-// Combined cost: total travel time + total slack (earliness) across all shuttles.
-// Lower is better.
 static int computeTotalCost(const vector<ShuttleSchedule>& schedules,
                             const vector<vector<int>>&      travelTimes) {
     int totalTravel = 0;
@@ -61,13 +53,6 @@ static int computeTotalCost(const vector<ShuttleSchedule>& schedules,
     return totalTravel + totalWait;
 }
 
-// ──────────────────────────────────────────────
-// Local-search optimiser
-// Two phases per iteration:
-//   Phase 1 — 2-opt: reverse sub-sequences within each shuttle's route.
-//   Phase 2 — Relocate: move a stop from one shuttle to another.
-// Continues until no improvement is found or MAX_ITERATIONS is reached.
-// ──────────────────────────────────────────────
 vector<ShuttleSchedule> optimizeSchedule(
     vector<ShuttleSchedule>    baseline,
     const vector<vector<int>>& travelTimes)
@@ -83,7 +68,6 @@ vector<ShuttleSchedule> optimizeSchedule(
         improved = false;
         iterations++;
 
-        // ── Phase 1: 2-opt within each shuttle's route ──────────────────
         for (size_t s = 0; s < best.size() && !improved; s++) {
             if (best[s].stops.size() < 2) continue;
 
@@ -91,7 +75,6 @@ vector<ShuttleSchedule> optimizeSchedule(
                 for (size_t j = i + 1; j < best[s].stops.size() && !improved; j++) {
                     vector<ShuttleSchedule> candidate = best;
 
-                    // Reverse the sub-route between i and j
                     reverse(candidate[s].stops.begin() + i,
                             candidate[s].stops.begin() + j + 1);
 
@@ -107,7 +90,6 @@ vector<ShuttleSchedule> optimizeSchedule(
             }
         }
 
-        // ── Phase 2: relocate a stop between shuttles ────────────────────
         if (!improved) {
             for (size_t s1 = 0; s1 < best.size() && !improved; s1++) {
                 for (size_t s2 = 0; s2 < best.size() && !improved; s2++) {
@@ -117,7 +99,6 @@ vector<ShuttleSchedule> optimizeSchedule(
                         for (size_t j = 0; j <= best[s2].stops.size() && !improved; j++) {
                             vector<ShuttleSchedule> candidate = best;
 
-                            // Move stop i from shuttle s1 to position j in shuttle s2
                             ScheduleEntry moving = candidate[s1].stops[i];
                             candidate[s1].stops.erase(candidate[s1].stops.begin() + i);
                             candidate[s2].stops.insert(candidate[s2].stops.begin() + j, moving);

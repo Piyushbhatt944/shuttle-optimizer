@@ -6,16 +6,15 @@
 #include <stdexcept>
 
 #ifdef _WIN32
-#include <direct.h>   // _mkdir
+#include <direct.h>
 #else
-#include <sys/stat.h> // mkdir
+#include <sys/stat.h>
 #endif
 
 using namespace std;
 
 extern vector<Stop> g_allStops;
 
-// Cross-platform directory creation without system()
 static void ensureOutputDir(const string& path) {
 #ifdef _WIN32
     _mkdir(path.c_str());
@@ -49,7 +48,6 @@ int main(int argc, char* argv[]) {
     cout << "Stops file:      " << stopsFile    << "\n";
     cout << "Shuttle count:   " << numShuttles  << "\n\n";
 
-    // --- Load stops ---
     vector<Stop> stops;
     try {
         stops = loadStops(stopsFile);
@@ -70,20 +68,16 @@ int main(int argc, char* argv[]) {
                s.id, s.name.c_str(), s.lat, s.lon, h, m);
     }
 
-    // --- Build travel time matrix ---
     auto travelTimes = buildTravelTimeMatrix(stops);
 
-    // --- Greedy baseline ---
     cout << "\nGenerating baseline schedule (greedy)...\n";
     auto baseline = generateBaselineSchedule(stops, travelTimes, numShuttles);
     evaluateSchedule(baseline, "Baseline (Greedy)");
 
-    // --- Local-search optimisation ---
     cout << "\nRunning local-search optimiser...\n";
     auto optimized = optimizeSchedule(baseline, travelTimes);
     evaluateSchedule(optimized, "Optimized (Local Search)");
 
-    // --- Export ---
     ensureOutputDir("output");
     exportScheduleToCSV(optimized, "output/final_schedule.csv");
 
