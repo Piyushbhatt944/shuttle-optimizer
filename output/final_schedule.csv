@@ -1,0 +1,7 @@
+shuttle_id,stop_id,stop_name,arrival_time,departure_time
+0,4,FRI Dehradun,07:00,07:02
+0,1,ISBT Dehradun,07:10,07:12
+1,5,Rispana Bridge,07:00,07:02
+1,0,Clock Tower,07:10,07:12
+1,2,Dehradun Railway Station,07:15,07:17
+1,3,Rajpur Road,07:23,07:25
