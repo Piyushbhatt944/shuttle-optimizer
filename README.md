@@ -1,55 +1,81 @@
 # ShuttleOpt — Static Shuttle Schedule Optimizer for Urban Transit
 
-ShuttleOpt reads GPS stop coordinates and arrival deadlines from a CSV file, calculates inter-stop travel times using the **Haversine formula** and **Floyd-Warshall** all-pairs shortest paths, then builds a shuttle schedule in two stages:
+ShuttleOpt is an algorithmic urban transit scheduling and route optimization engine developed in C++14. It takes real-world transit stop data (GPS latitude/longitude coordinates and arrival deadlines) from a CSV file, computes an all-pairs travel-time matrix using spatial trigonometry and shortest-path graph algorithms, generates a deadline-compliant baseline schedule, and refines it using local search metaheuristics.
 
-1. **Greedy baseline** — assigns stops to the shuttle that can arrive earliest, sorted by deadline.
-2. **Local-search optimizer** — improves the schedule using 2-opt (route reversal) and inter-shuttle stop relocation.
-
-Final results are printed to the terminal, saved to `output/final_schedule.csv`, and can be visualized on an interactive map dashboard.
+The final schedule is printed to the terminal, saved to `output/final_schedule.csv`, and can be visually inspected on an interactive geospatial map dashboard.
 
 ---
 
-## How to Compile
+## Table of Contents
+1. [End-to-End Pipeline](#end-to-end-pipeline)
+2. [What's Under the Hood (Core Algorithms)](#whats-under-the-hood-core-algorithms)
+3. [OOP & DSA Concepts](#oop--dsa-concepts)
+4. [Project Structure](#project-structure)
+5. [Compilation & Build](#compilation--build)
+6. [Execution & CLI Options](#execution--cli-options)
+7. [Web Visualizer Dashboard](#web-visualizer-dashboard)
 
-```bash
-make
-# Or manually:
-g++ -Iinclude -Wall -std=c++14 src/main.cpp src/data.cpp src/scheduler.cpp src/optimizer.cpp src/evaluator.cpp -o shuttle_optimizer
+---
+
+## End-to-End Pipeline
+
+```
+[stops.csv] (Input CSV with IDs, Names, Lat, Lon, Deadlines)
+     │
+     ▼  loadStops() + g_stopIdxMap (ID -> Matrix Index mapping)
+vector<Stop> (In-memory C++ Stop objects)
+     │
+     ▼  buildTravelTimeMatrix() (Haversine Formula + Floyd-Warshall)
+Matrix N×N (All-pairs shortest transit durations in minutes, scaled by --speed)
+     │
+     ▼  generateBaselineSchedule() (Greedy Earliest Deadline First)
+Baseline Schedule (Stops assigned across shuttles starting at --start)
+     │
+     ▼  optimizeSchedule() (2-Opt Inversion + Inter-Shuttle Relocation)
+Optimized Schedule (Minimizes travel time + slack while meeting all deadlines)
+     │
+     ├──► Terminal Table (Formatted arrival, departure, on-time status)
+     └──► output/final_schedule.csv (Exported timetable)
+               │
+               ▼  Loaded into web/index.html
+     [Interactive Map + Schedule Timetable in Browser]
 ```
 
-## How to Run
+---
 
-```bash
-# Default (Dehradun 4-stop dataset, 2 shuttles, 25 km/h, 07:00 start)
-.\shuttle_optimizer.exe
+## What's Under the Hood (Core Algorithms)
 
-# Custom file and shuttle count
-.\shuttle_optimizer.exe data\stops.csv 2
+### 1. Haversine Distance Formula (`src/data.cpp`)
+Computes great-circle distance between two GPS coordinates over the curved surface of the Earth ($R = 6371\text{ km}$):
+$$d = 2R \arcsin\left(\sqrt{\sin^2\left(\frac{\Delta \phi}{2}\right) + \cos(\phi_1)\cos(\phi_2)\sin^2\left(\frac{\Delta \lambda}{2}\right)}\right)$$
+Travel duration between stops is derived using the configurable speed parameter (`--speed`, default 25 km/h):
+$$\text{Time (minutes)} = \max\left(1, \text{round}\left(\frac{\text{Distance (km)}}{\text{Speed (km/h)}} \times 60\right)\right)$$
 
-# With custom parameters
-.\shuttle_optimizer.exe data\stops.csv 2 --speed 15 --start 06:30 --dwell 3
+### 2. Floyd-Warshall Algorithm (`src/data.cpp`)
+An all-pairs shortest path dynamic programming algorithm operating in $O(V^3)$ time complexity. It guarantees that the travel-time matrix satisfies the triangle inequality ($d[i][j] \le d[i][k] + d[k][j]$) across all transit hubs.
 
-# Show all options
-.\shuttle_optimizer.exe --help
-```
+### 3. Safe Matrix Index Mapping (`g_stopIdxMap`)
+A global lookup map (`std::map<int, int>`) decouples arbitrary or non-contiguous stop IDs (e.g., 7, 10, 25, 42) from contiguous matrix coordinates ($0 \dots N-1$). This prevents out-of-bounds memory indexing and segmentation faults.
 
-### CLI Options
+### 4. Greedy Baseline Scheduler (`src/scheduler.cpp`)
+Sorts stops chronologically by deadline using `Stop::operator<` (Earliest Deadline First). Iterates through the sorted stops and greedily assigns each to the vehicle that can arrive earliest.
 
-| Flag | Description | Default |
-|---|---|---|
-| `--speed <km/h>` | Average shuttle speed | 25.0 |
-| `--start <HH:MM>` | Fleet departure time | 07:00 |
-| `--dwell <mins>` | Boarding time per stop | 2 |
-| `--help` | Show usage | — |
+### 5. Local-Search Optimization Engine (`src/optimizer.cpp`)
+Iteratively improves schedule quality up to `maxIterations`:
+- **Phase 1 (Intra-route 2-Opt):** Reverses sub-sequences of stops within each shuttle route to untangle criss-crossing paths.
+- **Phase 2 (Inter-shuttle Relocation):** Migrates stops between different vehicles.
+- **Feasibility Verification:** Any candidate move is evaluated with `recomputeTimes()`; if any stop arrives past its deadline, the candidate is discarded.
+- **Cost Function:** Minimizes combined travel time and wait slack across the fleet.
 
-## Web Dashboard
+---
 
-Open `web/index.html` in any browser and load `output/final_schedule.csv` to see:
-- Interactive Dehradun map with color-coded shuttle routes
-- KPI cards (stops served, shuttles used, time range)
-- Formatted schedule table
+## OOP & DSA Concepts
 
-No server or installation needed — just open the HTML file.
+- **OOP Design:** 4 domain classes (`Config`, `Stop`, `ScheduleEntry`, `ShuttleSchedule`).
+- **Operator Overloading:** `Stop::operator<` for `std::sort` compatibility; `operator<<` friend functions for stream printing.
+- **Encapsulation:** Internal static helper functions scoping math and string routines.
+- **Adjacency Matrix:** 2D dynamic vector (`vector<vector<int>>`) representation of graph travel times.
+- **Exception Handling:** `try/catch` wrappers around file streams and numerical parsing.
 
 ---
 
@@ -57,47 +83,78 @@ No server or installation needed — just open the HTML file.
 
 ```
 shuttle-optimizer/
-├── include/shuttle.h       # Domain models + function declarations
+├── include/
+│   └── shuttle.h           # Domain models, configuration struct, function contracts
 ├── src/
-│   ├── main.cpp            # CLI entry point with flag parsing
-│   ├── data.cpp            # CSV loader, Haversine + Floyd-Warshall matrix
-│   ├── scheduler.cpp       # Greedy baseline scheduler
-│   ├── optimizer.cpp       # Local-search optimiser (2-opt + relocate)
-│   └── evaluator.cpp       # Schedule printer and CSV exporter
+│   ├── main.cpp            # CLI driver with flag parser & workflow orchestration
+│   ├── data.cpp            # CSV ingestion, Haversine formula, Floyd-Warshall matrix
+│   ├── scheduler.cpp       # Greedy baseline scheduler (Earliest Deadline First)
+│   ├── optimizer.cpp       # Local-search optimizer (2-opt & inter-shuttle relocate)
+│   └── evaluator.cpp       # Metrics reporting & CSV export
 ├── data/
-│   ├── stops.csv           # 4 Dehradun stops (IDs 0-3)
-│   └── stops_edge.csv      # Edge-case: non-contiguous stop IDs
+│   ├── stops.csv           # Default Dehradun dataset (Clock Tower, ISBT, Railway, Rajpur)
+│   └── stops_edge.csv      # Edge-case dataset with non-contiguous stop IDs (7, 10, 25, 42)
 ├── web/
-│   └── index.html          # Single-file map dashboard (Leaflet.js)
-├── output/                 # Generated schedule CSV (auto-created)
-├── Makefile
-└── README.md
+│   └── index.html          # Lightweight Leaflet.js interactive map visualizer
+├── output/
+│   └── final_schedule.csv  # Generated output timetable
+├── Makefile                # Build automation
+└── README.md               # Technical project documentation
 ```
 
 ---
 
-## DSA Concepts Used
+## Compilation & Build
 
-- Adjacency matrix — N×N vector for travel times
-- Floyd-Warshall — all-pairs shortest path in O(n³)
-- Greedy algorithm — earliest-deadline-first stop assignment
-- 2-opt local search — intra-route sub-sequence reversal
-- Relocation — inter-shuttle stop migration
-- STL sort with operator< overloading
+Compile using GNU Make:
+```bash
+make
+```
 
-## OOP Concepts Used
-
-- 4 classes: Config, Stop, ScheduleEntry, ShuttleSchedule
-- Constructors (default + parameterized), destructor
-- operator< and operator<< overloading
-- Friend functions, static members
-- Modular design with shared header contract
+Or manually with g++ (C++14):
+```bash
+g++ -Iinclude -Wall -std=c++14 src/main.cpp src/data.cpp src/scheduler.cpp src/optimizer.cpp src/evaluator.cpp -o shuttle_optimizer.exe
+```
 
 ---
 
-## Assumptions
+## Execution & CLI Options
 
-- Shuttle speed: configurable (default 25 km/h)
-- Dwell time per stop: configurable (default 2 minutes)
-- Start time: configurable (default 07:00 AM)
-- Coordinates are approximate real Dehradun locations
+```bash
+# Default run (Dehradun dataset, 2 shuttles, 25 km/h, 07:00 start)
+.\shuttle_optimizer.exe
+
+# Custom stops file and shuttle count
+.\shuttle_optimizer.exe data\stops.csv 2
+
+# Custom speed, start time, and dwell time
+.\shuttle_optimizer.exe data\stops.csv 2 --speed 20 --start 06:45 --dwell 3
+
+# Edge-case test (non-contiguous stop IDs)
+.\shuttle_optimizer.exe data\stops_edge.csv 2
+
+# Display help
+.\shuttle_optimizer.exe --help
+```
+
+### CLI Flags Reference
+
+| Option | Argument | Description | Default |
+| :--- | :--- | :--- | :--- |
+| `--speed` | `<km/h>` | Average shuttle velocity | `25.0` |
+| `--start` | `<HH:MM>` | Fleet dispatch start time | `07:00` |
+| `--dwell` | `<mins>` | Boarding / dwell time per stop | `2` |
+| `--help` | — | Display usage information | — |
+
+---
+
+## Web Visualizer Dashboard
+
+The project includes a single-file, zero-dependency visualizer located at `web/index.html`.
+
+1. Open `web/index.html` in any web browser.
+2. Drag and drop or upload `output/final_schedule.csv`.
+3. The dashboard renders:
+   - **Interactive Leaflet.js map** centered on Dehradun with color-coded routes and waypoint markers.
+   - **Summary KPI cards** showing stops served, shuttles utilized, and operational duration.
+   - **Schedule timetable** detailing arrival, boarding, and departure times per vehicle.
