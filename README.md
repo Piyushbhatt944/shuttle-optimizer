@@ -2,7 +2,7 @@
 
 ShuttleOpt is an algorithmic urban transit scheduling and route optimization engine developed in C++14. It takes real-world transit stop data (GPS latitude/longitude coordinates and arrival deadlines) from a CSV file, computes an all-pairs travel-time matrix using spatial trigonometry and shortest-path graph algorithms, generates a deadline-compliant baseline schedule, and refines it using local search metaheuristics.
 
-The final schedule is printed to the terminal, saved to `output/final_schedule.csv`, and can be visually inspected on an interactive geospatial map dashboard.
+The final schedule is printed to the terminal, saved to `output/final_schedule.csv`, and can be inspected on an auto-loading web dashboard.
 
 ---
 
@@ -13,7 +13,7 @@ The final schedule is printed to the terminal, saved to `output/final_schedule.c
 4. [Project Structure](#project-structure)
 5. [Compilation & Build](#compilation--build)
 6. [Execution & CLI Options](#execution--cli-options)
-7. [Web Visualizer Dashboard](#web-visualizer-dashboard)
+7. [Web Dashboard](#web-dashboard)
 
 ---
 
@@ -38,7 +38,7 @@ Optimized Schedule (Minimizes travel time + slack while meeting all deadlines)
      └──► output/final_schedule.csv (Exported timetable)
                │
                ▼  Loaded into web/index.html
-     [Interactive Map + Schedule Timetable in Browser]
+     [Stops Table + Schedule Timetable in Browser]
 ```
 
 ---
@@ -92,10 +92,9 @@ shuttle-optimizer/
 │   ├── optimizer.cpp       # Local-search optimizer (2-opt & inter-shuttle relocate)
 │   └── evaluator.cpp       # Metrics reporting & CSV export
 ├── data/
-│   ├── stops.csv           # Default Dehradun dataset (Clock Tower, ISBT, Railway, Rajpur)
-│   └── stops_edge.csv      # Edge-case dataset with non-contiguous stop IDs (7, 10, 25, 42)
+│   └── stops.csv           # Default Dehradun dataset (Clock Tower, ISBT, Railway, Rajpur)
 ├── web/
-│   └── index.html          # Lightweight Leaflet.js interactive map visualizer
+│   └── index.html          # Lightweight auto-loading dashboard
 ├── output/
 │   └── final_schedule.csv  # Generated output timetable
 ├── Makefile                # Build automation
@@ -130,9 +129,6 @@ g++ -Iinclude -Wall -std=c++14 src/main.cpp src/data.cpp src/scheduler.cpp src/o
 # Custom speed, start time, and dwell time
 .\shuttle_optimizer.exe data\stops.csv 2 --speed 20 --start 06:45 --dwell 3
 
-# Edge-case test (non-contiguous stop IDs)
-.\shuttle_optimizer.exe data\stops_edge.csv 2
-
 # Display help
 .\shuttle_optimizer.exe --help
 ```
@@ -148,13 +144,13 @@ g++ -Iinclude -Wall -std=c++14 src/main.cpp src/data.cpp src/scheduler.cpp src/o
 
 ---
 
-## Web Visualizer Dashboard
+## Web Dashboard
 
-The project includes a single-file, zero-dependency visualizer located at `web/index.html`.
+The project includes an auto-loading dashboard located at `web/index.html`.
 
-1. Open `web/index.html` in any web browser.
-2. Drag and drop or upload `output/final_schedule.csv`.
-3. The dashboard renders:
-   - **Interactive Leaflet.js map** centered on Dehradun with color-coded routes and waypoint markers.
-   - **Summary KPI cards** showing stops served, shuttles utilized, and operational duration.
-   - **Schedule timetable** detailing arrival, boarding, and departure times per vehicle.
+1. Double-click `web/index.html` to open it in any browser.
+2. The dashboard automatically loads and renders:
+   - **Transit Stops Table** (`stops.csv`) with stop IDs, names, coordinates, and deadlines.
+   - **Optimized Route Timetable** (`final_schedule.csv`) with vehicle assignments, arrival/departure timings, and on-time status.
+   - **Summary KPI Cards** showing stops count, earliest/latest deadlines, active shuttles, and punctuality rate.
+3. No manual upload or drag-and-drop required.
