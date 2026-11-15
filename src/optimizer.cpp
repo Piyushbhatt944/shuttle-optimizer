@@ -16,7 +16,7 @@ static bool recomputeTimes(ShuttleSchedule&           schedule,
     for (size_t i = 0; i < schedule.stops.size(); i++) {
         int arrival;
         if (i == 0) {
-            arrival = Config::START_TIME;
+            arrival = g_config.startTime;
         } else {
             int prevIdx = g_stopIdxMap.at(schedule.stops[i - 1].stopId);
             int currIdx = g_stopIdxMap.at(schedule.stops[i].stopId);
@@ -24,7 +24,7 @@ static bool recomputeTimes(ShuttleSchedule&           schedule,
                       travelTimes[prevIdx][currIdx];
         }
         schedule.stops[i].arrivalTime   = arrival;
-        schedule.stops[i].departureTime = arrival + Config::DWELL_TIME;
+        schedule.stops[i].departureTime = arrival + g_config.dwellTime;
 
         if (arrival > getRequiredByTime(schedule.stops[i].stopId)) {
             return false;
@@ -64,7 +64,7 @@ vector<ShuttleSchedule> optimizeSchedule(
     bool improved  = true;
     int  iterations = 0;
 
-    while (improved && iterations < Config::MAX_ITERATIONS) {
+    while (improved && iterations < g_config.maxIterations) {
         improved = false;
         iterations++;
 

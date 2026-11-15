@@ -84,7 +84,7 @@ vector<vector<int>> buildTravelTimeMatrix(const vector<Stop>& stops) {
                 double distKm = haversineDistanceKm(
                     stops[i].lat, stops[i].lon,
                     stops[j].lat, stops[j].lon);
-                double timeMin = (distKm / Config::shuttleSpeed()) * 60.0;
+                double timeMin = (distKm / g_config.speed) * 60.0;
                 matrix[i][j] = max(1, static_cast<int>(round(timeMin)));
             }
         }

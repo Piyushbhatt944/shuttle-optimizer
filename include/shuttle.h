@@ -8,11 +8,16 @@
 
 using namespace std;
 
-class Config {
-public:
-    enum { START_TIME = 420, DWELL_TIME = 2, MAX_ITERATIONS = 500 };
-    static double shuttleSpeed() { return 25.0; }
+struct Config {
+    int startTime;
+    int dwellTime;
+    int maxIterations;
+    double speed;
+
+    Config() : startTime(420), dwellTime(2), maxIterations(500), speed(25.0) {}
 };
+
+extern Config g_config;
 
 class Stop {
 public:

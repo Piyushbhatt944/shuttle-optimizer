@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ShuttleOpt Dashboard</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Arial, sans-serif; background: #f0f2f5; color: #333; }
+
+        header {
+            background: linear-gradient(135deg, #1a73e8, #0d47a1);
+            color: white; padding: 18px 30px;
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        header h1 { font-size: 22px; font-weight: 600; }
+
+        .container { max-width: 1200px; margin: 20px auto; padding: 0 20px; }
+
+        .upload-area {
+            background: white; border: 2px dashed #c4c4c4; border-radius: 12px;
+            padding: 40px; text-align: center; margin-bottom: 20px; cursor: pointer;
+            transition: border-color 0.2s;
+        }
+        .upload-area:hover { border-color: #1a73e8; }
+        .upload-area.loaded { border-color: #34a853; border-style: solid; }
+        .upload-area h2 { font-size: 18px; margin-bottom: 8px; }
+        .upload-area p { color: #666; font-size: 14px; }
+
+        .kpi-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 20px; }
+        .kpi-card {
+            background: white; border-radius: 10px; padding: 18px;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.08); text-align: center;
+        }
+        .kpi-card .value { font-size: 28px; font-weight: 700; color: #1a73e8; }
+        .kpi-card .label { font-size: 12px; color: #888; margin-top: 4px; text-transform: uppercase; }
+
+        .content-row { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
+        .panel {
+            background: white; border-radius: 10px; padding: 20px;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+        }
+        .panel h3 { font-size: 16px; margin-bottom: 12px; color: #1a73e8; }
+
+        #map { height: 380px; border-radius: 8px; }
+
+        table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        th { background: #f8f9fa; padding: 10px 8px; text-align: left; border-bottom: 2px solid #e0e0e0; }
+        td { padding: 8px; border-bottom: 1px solid #eee; }
+        .shuttle-0 td:first-child { border-left: 3px solid #e53935; }
+        .shuttle-1 td:first-child { border-left: 3px solid #1a73e8; }
+        .shuttle-2 td:first-child { border-left: 3px solid #43a047; }
+        .shuttle-3 td:first-child { border-left: 3px solid #fb8c00; }
+
+        .hidden { display: none; }
+
+        .legend { display: flex; gap: 16px; margin-bottom: 10px; flex-wrap: wrap; }
+        .legend-item { display: flex; align-items: center; gap: 6px; font-size: 13px; }
+        .legend-dot { width: 12px; height: 12px; border-radius: 50%; }
+
+        @media (max-width: 768px) {
+            .content-row { grid-template-columns: 1fr; }
+            .kpi-row { grid-template-columns: repeat(2, 1fr); }
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>ShuttleOpt Dashboard</h1>
+    <span style="font-size:13px; opacity:0.8;">Dehradun Urban Transit Optimizer</span>
+</header>
+
+<div class="container">
+    <div class="upload-area" id="uploadArea" onclick="document.getElementById('fileInput').click()">
+        <h2>Load Schedule CSV</h2>
+        <p>Click here or drag & drop <code>output/final_schedule.csv</code></p>
+        <input type="file" id="fileInput" accept=".csv" style="display:none">
+    </div>
+
+    <div id="dashboard" class="hidden">
+        <div class="kpi-row">
+            <div class="kpi-card"><div class="value" id="kpiStops">-</div><div class="label">Stops Served</div></div>
+            <div class="kpi-card"><div class="value" id="kpiShuttles">-</div><div class="label">Shuttles Used</div></div>
+            <div class="kpi-card"><div class="value" id="kpiStart">-</div><div class="label">First Departure</div></div>
+            <div class="kpi-card"><div class="value" id="kpiEnd">-</div><div class="label">Last Arrival</div></div>
+        </div>
+
+        <div class="content-row">
+            <div class="panel">
+                <h3>Route Map</h3>
+                <div class="legend" id="legend"></div>
+                <div id="map"></div>
+            </div>
+            <div class="panel">
+                <h3>Schedule Table</h3>
+                <div style="max-height:420px; overflow-y:auto;">
+                    <table>
+                        <thead><tr><th>Shuttle</th><th>Stop</th><th>Arrival</th><th>Departure</th></tr></thead>
+                        <tbody id="tableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+const COLORS = ['#e53935', '#1a73e8', '#43a047', '#fb8c00', '#8e24aa', '#00897b'];
+
+const STOP_COORDS = {
+    'clock tower':              [30.3255, 78.0421],
+    'isbt dehradun':            [30.3472, 78.0326],
+    'dehradun railway station': [30.3182, 78.0325],
+    'rajpur road':              [30.3350, 78.0508]
+};
+
+function parseCSV(text) {
+    const lines = text.trim().split('\n');
+    const rows = [];
+    for (let i = 1; i < lines.length; i++) {
+        const cols = lines[i].split(',');
+        if (cols.length < 5) continue;
+        rows.push({
+            shuttleId:  parseInt(cols[0]),
+            stopId:     parseInt(cols[1]),
+            stopName:   cols[2].trim(),
+            arrival:    cols[3].trim(),
+            departure:  cols[4].trim()
+        });
+    }
+    return rows;
+}
+
+function render(rows) {
+    document.getElementById('dashboard').classList.remove('hidden');
+
+    const shuttleIds = [...new Set(rows.map(r => r.shuttleId))];
+    const activeShuttles = shuttleIds.filter(id => rows.some(r => r.shuttleId === id));
+
+    document.getElementById('kpiStops').textContent = rows.length;
+    document.getElementById('kpiShuttles').textContent = activeShuttles.length;
+    document.getElementById('kpiStart').textContent = rows.length ? rows[0].arrival : '-';
+    document.getElementById('kpiEnd').textContent = rows.length ? rows[rows.length - 1].departure : '-';
+
+    const tbody = document.getElementById('tableBody');
+    tbody.innerHTML = '';
+    rows.forEach(r => {
+        const tr = document.createElement('tr');
+        tr.className = 'shuttle-' + r.shuttleId;
+        tr.innerHTML = `<td>Shuttle ${r.shuttleId}</td><td>${r.stopName}</td><td>${r.arrival}</td><td>${r.departure}</td>`;
+        tbody.appendChild(tr);
+    });
+
+    const legendEl = document.getElementById('legend');
+    legendEl.innerHTML = '';
+    activeShuttles.forEach(id => {
+        legendEl.innerHTML += `<div class="legend-item"><div class="legend-dot" style="background:${COLORS[id % COLORS.length]}"></div>Shuttle ${id}</div>`;
+    });
+
+    const map = L.map('map').setView([30.335, 78.043], 13);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap'
+    }).addTo(map);
+
+    activeShuttles.forEach(shuttleId => {
+        const color = COLORS[shuttleId % COLORS.length];
+        const stops = rows.filter(r => r.shuttleId === shuttleId);
+        const coords = [];
+
+        stops.forEach((stop, idx) => {
+            const key = stop.stopName.toLowerCase();
+            const ll = STOP_COORDS[key];
+            if (!ll) return;
+            coords.push(ll);
+
+            const marker = L.circleMarker(ll, {
+                radius: 8, fillColor: color, color: '#fff',
+                weight: 2, fillOpacity: 0.9
+            }).addTo(map);
+
+            marker.bindPopup(
+                `<b>${stop.stopName}</b><br>` +
+                `Shuttle ${stop.shuttleId} (Stop #${idx + 1})<br>` +
+                `Arrive: ${stop.arrival}<br>` +
+                `Depart: ${stop.departure}`
+            );
+        });
+
+        if (coords.length > 1) {
+            L.polyline(coords, { color: color, weight: 3, opacity: 0.7, dashArray: '8 4' }).addTo(map);
+        }
+    });
+
+    if (rows.length) {
+        const allCoords = rows.map(r => STOP_COORDS[r.stopName.toLowerCase()]).filter(Boolean);
+        if (allCoords.length) map.fitBounds(allCoords, { padding: [40, 40] });
+    }
+}
+
+const fileInput = document.getElementById('fileInput');
+const uploadArea = document.getElementById('uploadArea');
+
+fileInput.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+        uploadArea.classList.add('loaded');
+        uploadArea.querySelector('h2').textContent = file.name + ' loaded';
+        render(parseCSV(ev.target.result));
+    };
+    reader.readAsText(file);
+});
+
+uploadArea.addEventListener('dragover', (e) => { e.preventDefault(); uploadArea.style.borderColor = '#1a73e8'; });
+uploadArea.addEventListener('dragleave', () => { uploadArea.style.borderColor = '#c4c4c4'; });
+uploadArea.addEventListener('drop', (e) => {
+    e.preventDefault();
+    uploadArea.style.borderColor = '#c4c4c4';
+    const file = e.dataTransfer.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+        uploadArea.classList.add('loaded');
+        uploadArea.querySelector('h2').textContent = file.name + ' loaded';
+        render(parseCSV(ev.target.result));
+    };
+    reader.readAsText(file);
+});
+</script>
+</body>
+</html>

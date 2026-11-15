@@ -14,7 +14,7 @@ vector<ShuttleSchedule> generateBaselineSchedule(
 
     vector<ShuttleSchedule> schedules(numShuttles);
     vector<int> lastStopId(numShuttles, -1);
-    vector<int> currentTime(numShuttles, Config::START_TIME);
+    vector<int> currentTime(numShuttles, g_config.startTime);
 
     for (int i = 0; i < numShuttles; i++) {
         schedules[i] = ShuttleSchedule(i);
@@ -28,7 +28,7 @@ vector<ShuttleSchedule> generateBaselineSchedule(
         for (int s = 0; s < numShuttles; s++) {
             int arrival;
             if (lastStopId[s] == -1) {
-                arrival = Config::START_TIME;
+                arrival = g_config.startTime;
             } else {
                 int lastIdx = g_stopIdxMap.at(lastStopId[s]);
                 arrival = currentTime[s] + travelTimes[lastIdx][stopIdx];
@@ -41,10 +41,10 @@ vector<ShuttleSchedule> generateBaselineSchedule(
         }
 
         schedules[bestShuttle].stops.push_back(
-            ScheduleEntry(stop.id, bestArrival, bestArrival + Config::DWELL_TIME));
+            ScheduleEntry(stop.id, bestArrival, bestArrival + g_config.dwellTime));
 
         lastStopId[bestShuttle]  = stop.id;
-        currentTime[bestShuttle] = bestArrival + Config::DWELL_TIME;
+        currentTime[bestShuttle] = bestArrival + g_config.dwellTime;
     }
 
     return schedules;
