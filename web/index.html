@@ -42,6 +42,21 @@
             box-shadow: 0 1px 4px rgba(0,0,0,0.08); margin-bottom: 24px;
         }
 
+        .form-row { display: flex; gap: 14px; align-items: flex-end; flex-wrap: wrap; }
+        .form-group { display: flex; flex-direction: column; gap: 6px; }
+        .form-control {
+            padding: 10px 12px; border: 1px solid #d0d7de; border-radius: 6px;
+            font-size: 14px; font-family: inherit; outline: none; transition: border-color 0.2s;
+        }
+        .form-control:focus { border-color: #1a73e8; box-shadow: 0 0 0 2px rgba(26,115,232,0.2); }
+        .btn {
+            padding: 10px 22px; background: #1a73e8; color: white; border: none;
+            border-radius: 6px; font-size: 14px; font-weight: 600; cursor: pointer;
+            transition: background 0.2s;
+        }
+        .btn:hover { background: #1557b0; }
+        .btn:disabled { background: #9bbdf2; cursor: not-allowed; }
+
         table { width: 100%; border-collapse: collapse; font-size: 13px; }
         th { background: #f8f9fa; padding: 12px 10px; text-align: left; border-bottom: 2px solid #e0e0e0; color: #555; }
         td { padding: 10px; border-bottom: 1px solid #eee; }
@@ -60,6 +75,7 @@
         @media (max-width: 768px) {
             .kpi-row { grid-template-columns: repeat(2, 1fr); }
             header { flex-direction: column; align-items: flex-start; gap: 6px; }
+            .form-row { flex-direction: column; align-items: stretch; }
         }
     </style>
 </head>
@@ -71,6 +87,26 @@
 </header>
 
 <div class="container">
+    <div class="panel">
+        <h3 style="margin-bottom: 14px; color: #1a73e8; font-size: 16px;">Insert New Stop from Dehradun Samples</h3>
+        <form id="addStopForm" onsubmit="handleAddStop(event)" class="form-row">
+            <div class="form-group" style="flex: 2; min-width: 220px;">
+                <label for="sampleStopsSelect" style="font-size: 12px; color: #555; font-weight: 600;">Select Sample Stop</label>
+                <select id="sampleStopsSelect" class="form-control" required>
+                    <option value="" disabled selected>Loading samples...</option>
+                </select>
+            </div>
+            <div class="form-group" style="flex: 1; min-width: 150px;">
+                <label for="deadlineInput" style="font-size: 12px; color: #555; font-weight: 600;">Deadline Minutes (since 00:00)</label>
+                <input type="number" id="deadlineInput" class="form-control" placeholder="e.g. 500 (08:20)" min="1" required />
+            </div>
+            <div class="form-group">
+                <button type="submit" id="addStopBtn" class="btn">Add Stop</button>
+            </div>
+            <span id="formStatus" style="font-size: 13px; align-self: center;"></span>
+        </form>
+    </div>
+
     <div class="section-header">
         <h2>Transit Stops (stops.csv)</h2>
         <span class="badge" id="stopsSourceBadge">Auto-Loaded</span>
@@ -143,6 +179,9 @@
 </script>
 
 <script>
+let sampleStops = [];
+let currentStops = [];
+
 function formatTime(minutes) {
     const h = String(Math.floor(minutes / 60)).padStart(2, '0');
     const m = String(minutes % 60).padStart(2, '0');
@@ -183,8 +222,26 @@ function parseScheduleCSV(text) {
     return rows;
 }
 
+function parseSamplesCSV(text) {
+    const lines = text.trim().split('\n');
+    const rows = [];
+    for (let i = 1; i < lines.length; i++) {
+        const cols = lines[i].split(',');
+        if (cols.length < 4) continue;
+        rows.push({
+            id: cols[0].trim(),
+            name: cols[1].trim(),
+            lat: parseFloat(cols[2].trim()),
+            lon: parseFloat(cols[3].trim())
+        });
+    }
+    return rows;
+}
+
 function renderStops(stops) {
     if (!stops.length) return;
+    currentStops = stops;
+    populateSampleDropdown();
     document.getElementById('kpiTotalStops').textContent = stops.length;
 
     const deadlines = stops.map(s => s.deadlineMin);
@@ -233,22 +290,146 @@ function renderSchedule(schedule) {
     });
 }
 
-async function loadData() {
-    let stopsText = '';
+async function loadSamples() {
+    let text = '';
     try {
-        const res = await fetch('../data/stops.csv');
-        if (res.ok) stopsText = await res.text();
-    } catch (e) {}
+        const res = await fetch('/data/dehradun_samples.csv?t=' + Date.now());
+        if (res.ok) text = await res.text();
+    } catch (e) {
+        try {
+            const res2 = await fetch('../data/dehradun_samples.csv?t=' + Date.now());
+            if (res2.ok) text = await res2.text();
+        } catch (e2) {}
+    }
+    if (!text) {
+        text = "ID,Name,Latitude,Longitude\nS1,Pacific Mall,30.3674,78.0673\nS2,FRI Dehradun,30.3444,77.9995\nS3,Rispana Bridge,30.2980,78.0560\nS4,Ballupur Chowk,30.3398,78.0165";
+    }
+    sampleStops = parseSamplesCSV(text);
+    populateSampleDropdown();
+}
+
+function populateSampleDropdown() {
+    const select = document.getElementById('sampleStopsSelect');
+    if (!select) return;
+    select.innerHTML = '<option value="" disabled selected>-- Choose a Dehradun Stop --</option>';
+
+    const existingNames = new Set(currentStops.map(s => s.name.toLowerCase()));
+
+    sampleStops.forEach((stop, idx) => {
+        const isAlreadyAdded = existingNames.has(stop.name.toLowerCase());
+        const opt = document.createElement('option');
+        opt.value = idx;
+        if (isAlreadyAdded) {
+            opt.textContent = `[${stop.id}] ${stop.name} (Already Added)`;
+            opt.disabled = true;
+        } else {
+            opt.textContent = `[${stop.id}] ${stop.name} (${stop.lat.toFixed(4)}, ${stop.lon.toFixed(4)})`;
+        }
+        select.appendChild(opt);
+    });
+}
+
+async function handleAddStop(e) {
+    e.preventDefault();
+    const select = document.getElementById('sampleStopsSelect');
+    const deadlineInput = document.getElementById('deadlineInput');
+    const status = document.getElementById('formStatus');
+    const btn = document.getElementById('addStopBtn');
+
+    const selectedIdx = select.value;
+    if (selectedIdx === "") return;
+
+    const chosenStop = sampleStops[selectedIdx];
+    const deadline = parseInt(deadlineInput.value, 10);
+
+    // Client-side verification
+    const isDuplicate = currentStops.some(s => s.name.toLowerCase() === chosenStop.name.toLowerCase());
+    if (isDuplicate) {
+        status.style.color = '#d93025';
+        status.textContent = `Error: Stop '${chosenStop.name}' is already in the schedule.`;
+        return;
+    }
+
+    btn.disabled = true;
+    status.style.color = '#1a73e8';
+    status.textContent = 'Adding stop and recalculating schedule...';
+
+    const apiBase = window.location.protocol === 'file:' ? 'http://localhost:8000' : '';
+
+    try {
+        const res = await fetch(`${apiBase}/api/add-stop`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                name: chosenStop.name,
+                lat: chosenStop.lat,
+                lon: chosenStop.lon,
+                deadline: deadline
+            })
+        });
+        const result = await res.json();
+        if (res.ok && result.success) {
+            status.style.color = '#137333';
+            status.textContent = 'Success! Reloading...';
+            setTimeout(() => window.location.reload(), 600);
+        } else {
+            throw new Error(result.error || 'Server error');
+        }
+    } catch (err) {
+        status.style.color = '#d93025';
+        if (window.location.protocol === 'file:' && err.message.toLowerCase().includes('fetch')) {
+            status.textContent = 'Error: Local server is not running! Please run "python server.py" in your terminal first.';
+        } else {
+            status.textContent = 'Error: ' + err.message;
+        }
+        btn.disabled = false;
+    }
+}
+
+async function loadData() {
+    loadSamples();
+
+    const fetchBase = window.location.protocol === 'file:' ? 'http://localhost:8000' : '';
+
+    let stopsText = '';
+    const stopsUrls = [
+        `${fetchBase}/data/stops.csv?t=` + Date.now(),
+        '../data/stops.csv?t=' + Date.now(),
+        '/data/stops.csv?t=' + Date.now()
+    ];
+
+    for (const url of stopsUrls) {
+        try {
+            const res = await fetch(url);
+            if (res.ok) {
+                stopsText = await res.text();
+                if (stopsText.trim()) break;
+            }
+        } catch (e) {}
+    }
+
     if (!stopsText) {
         stopsText = document.getElementById('embedded-stops').textContent.trim();
     }
     renderStops(parseStopsCSV(stopsText));
 
     let schedText = '';
-    try {
-        const res = await fetch('../output/final_schedule.csv');
-        if (res.ok) schedText = await res.text();
-    } catch (e) {}
+    const schedUrls = [
+        `${fetchBase}/output/final_schedule.csv?t=` + Date.now(),
+        '../output/final_schedule.csv?t=' + Date.now(),
+        '/output/final_schedule.csv?t=' + Date.now()
+    ];
+
+    for (const url of schedUrls) {
+        try {
+            const res = await fetch(url);
+            if (res.ok) {
+                schedText = await res.text();
+                if (schedText.trim()) break;
+            }
+        } catch (e) {}
+    }
+
     if (!schedText) {
         schedText = document.getElementById('embedded-schedule').textContent.trim();
     }

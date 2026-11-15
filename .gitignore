@@ -3,3 +3,5 @@
 *.obj
 *.out
 output/final_schedule.csv
+__pycache__/
+*.pyc
